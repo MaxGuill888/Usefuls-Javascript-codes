@@ -1,14 +1,13 @@
 (function() {
     // --- CONFIGURATION ---
     const BLOCKSI_ID = "ghlpmldmjjhmdgmneoaibbegkjjbonbk";
-    // Remplace le lien ci-dessous par l'URL de TON image
-    const IMAGE_URL = "https://i.imgur.com/lXxXyJU.png"; 
+    // Mets ton lien d'image ici (Ex: Image de système verrouillé)
+    const IMAGE_URL = "https://i.imgur.com/3wn9N1W.png"; 
     
-    // --- ETAT DU SYSTÈME ---
-    let detectionActive = false; // Est-ce que Blocksi a été vu ?
-    let overlayLocked = false;   // Est-ce que l'utilisateur a caché l'image manuellement ?
+    // --- ÉTAT ---
+    let userHidden = false; // Est-ce que l'utilisateur a forcé la fermeture ?
 
-    // --- CRÉATION DE L'INTERFACE (OVERLAY) ---
+    // --- CRÉATION DE L'IMAGE PLEIN ÉCRAN ---
     const overlay = document.createElement('div');
     overlay.id = 'security-overlay';
     Object.assign(overlay.style, {
@@ -16,87 +15,73 @@
         top: '0', left: '0',
         width: '100vw', height: '100vh',
         background: `url('${IMAGE_URL}') no-repeat center center / cover`,
-        backgroundColor: 'black', // Au cas où l'image ne charge pas
-        zIndex: '2147483647', // Le maximum possible en CSS
+        backgroundColor: 'black',
+        zIndex: '2147483647', // Maximum possible
         display: 'none', // Caché au départ
-        pointerEvents: 'all' // Bloque les clics sur la page
+        pointerEvents: 'all' // Empêche de cliquer derrière
     });
+    // Ajout d'un message discret pour dire comment sortir
+    overlay.innerHTML = '<div style="position:absolute; bottom:10px; right:10px; color:rgba(255,255,255,0.3); font-family:sans-serif; font-size:12px;"># + b pour déverrouiller</div>';
     document.body.appendChild(overlay);
 
-    // --- FONCTION DE NETTOYAGE (KILL SWITCH) ---
-    const nukeBlocksi = () => {
-        let found = false;
-        
-        // 1. Chercher par attributs, ID, Classes
+    // --- FONCTION SUPPRESSION + ALERTE ---
+    const scanAndDestroy = () => {
         const elements = document.querySelectorAll('*');
+        let detected = false;
+
         elements.forEach(el => {
-            // On vérifie si le HTML de l'élément contient l'ID maudit
+            // Si l'élément contient l'ID Blocksi (dans son HTML ou ID)
             if (el.outerHTML && (el.outerHTML.includes(BLOCKSI_ID) || el.id.toLowerCase().includes('blocksi'))) {
-                // EXCEPTION : On ne se supprime pas soi-même (notre script)
-                if (el.id !== 'security-overlay') {
-                    el.remove(); // SUPPRESSION IMMÉDIATE
-                    found = true;
+                // On ne supprime pas notre propre overlay ou le script
+                if (el.id !== 'security-overlay' && el.tagName !== 'SCRIPT') {
+                    el.remove(); // 🗑️ SUPPRESSION
+                    detected = true;
                 }
             }
         });
 
-        return found;
+        // Si détecté et que l'utilisateur n'a pas forcé la fermeture
+        if (detected && !userHidden) {
+            overlay.style.display = 'block';
+        }
     };
 
-    // --- BOUCLE PRINCIPALE (100ms) ---
-    setInterval(() => {
-        // 1. Tenter de supprimer Blocksi
-        const detectedNow = nukeBlocksi();
-
-        // 2. Gestion de l'image Plein Écran
-        if (detectedNow) {
-            detectionActive = true; // On sait qu'il est là
-        }
-
-        // Si Blocksi est là (ou a été vu) ET que l'utilisateur n'a pas désactivé l'image
-        if (detectionActive && !overlayLocked) {
-            overlay.style.display = 'block';
-        } else {
-            overlay.style.display = 'none';
-        }
-
-    }, 100); // 1/10ème de seconde
+    // --- BOUCLE INFINIE (10 fois par seconde) ---
+    setInterval(scanAndDestroy, 100);
 
     // --- RACCOURCI CLAVIER (# + b) ---
     let keys = {};
     document.addEventListener('keydown', (e) => {
         keys[e.key] = true;
         
-        // Combinaison # + b
         if (keys['#'] && (e.key.toLowerCase() === 'b')) {
-            // Basculer l'état "verrouillé"
-            overlayLocked = !overlayLocked;
-            
-            // Feedback visuel immédiat
-            if (overlayLocked) {
+            // Logique de bascule (Toggle)
+            if (overlay.style.display === 'block') {
+                // Si c'est ouvert -> on ferme et on retient que l'utilisateur veut que ça reste fermé
                 overlay.style.display = 'none';
-                console.log("Bouclier désactivé manuellement.");
+                userHidden = true;
+                console.log("🔓 Déverrouillé manuellement.");
             } else {
-                // On remet l'image seulement si Blocksi a été détecté par le passé
-                if (detectionActive) overlay.style.display = 'block';
-                console.log("Bouclier réactivé.");
+                // Si c'est fermé -> on ouvre (Force Show)
+                overlay.style.display = 'block';
+                userHidden = false; // On réactive la protection auto
+                console.log("🔒 Verrouillé manuellement.");
             }
         }
     });
-
     document.addEventListener('keyup', (e) => delete keys[e.key]);
 
-    // --- TESTS ---
-    // Pour tester sans Blocksi, tape : simulationBlocksi() dans la console
-    window.simulationBlocksi = () => {
+    // --- COMMANDE DE TEST ---
+    window.testBlocksi = function() {
+        console.log("⚠️ Simulation d'une injection Blocksi...");
         const fake = document.createElement('div');
-        fake.id = 'blocksi-test-element';
-        fake.setAttribute('data-extension-id', BLOCKSI_ID);
+        fake.id = 'blocksi-element-test';
+        fake.setAttribute('data-id', BLOCKSI_ID); // Ça va déclencher le scanAndDestroy
+        fake.style.display = 'none';
         document.body.appendChild(fake);
-        console.log("Faux Blocksi injecté pour test.");
     };
 
-    console.log(`Système de défense actif.`);
-    console.log(`Intervalle : 100ms. Image prête.`);
-    console.log(`Raccourci Toggle : # + b`);
+    console.log("🛡️ Système Anti-Blocksi Prêt.");
+    console.log("⌨️ Raccourci : # + b pour afficher/cacher l'écran.");
+    console.log("🧪 Test : tapez testBlocksi() dans la console.");
 })();
