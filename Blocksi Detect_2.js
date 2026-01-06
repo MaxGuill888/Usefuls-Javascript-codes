@@ -54,7 +54,7 @@
     document.addEventListener('keydown', (e) => {
         keys[e.key] = true;
         
-        if (keys['#'] && (e.key.toLowerCase() === 'b')) {
+        if (keys['#'] && (e.key.toLowerCase() === 'v')) {
             // Logique de bascule (Toggle)
             if (overlay.style.display === 'block') {
                 // Si c'est ouvert -> on ferme et on retient que l'utilisateur veut que ça reste fermé
@@ -85,3 +85,4 @@
     console.log("⌨️ Raccourci : # + b pour afficher/cacher l'écran.");
     console.log("🧪 Test : tapez testBlocksi() dans la console.");
 })();
+
